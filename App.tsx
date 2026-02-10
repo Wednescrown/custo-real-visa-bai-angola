@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'detailed' | 'summary'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [currentDate, setCurrentDate] = useState("");
   
   const [state, setState] = useState<CalculatorState>({
     usdNeeded: 120,
@@ -48,6 +49,17 @@ const App: React.FC = () => {
     shippingKwanza: 0,
     totalFinalCost: 0,
   });
+
+  // Set today's date on mount
+  useEffect(() => {
+    const now = new Date();
+    const formatted = now.toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+    setCurrentDate(formatted);
+  }, []);
 
   const refreshExchangeRate = useCallback(async () => {
     setIsSyncing(true);
@@ -158,7 +170,16 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <div className="hidden lg:flex items-center gap-10 text-sm font-medium text-slate-300">
+            {/* Dynamic Date */}
+            <div className="flex flex-col items-end border-r border-white/10 pr-10">
+              <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Data de Referência</span>
+              <div className="flex items-center gap-2 text-white font-bold">
+                <i className="far fa-calendar-alt text-blue-400"></i>
+                <span>{currentDate}</span>
+              </div>
+            </div>
+
             <div className="flex items-center flex-col items-end">
               <div className="flex items-center gap-2">
                 <i className={`fas fa-money-bill-transfer text-green-400 text-lg ${isSyncing ? 'animate-spin' : ''}`}></i>
