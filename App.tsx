@@ -4,7 +4,6 @@ import { Calculator } from './components/Calculator';
 import { AnalysisPanel } from './components/AnalysisPanel';
 import { SummaryView } from './components/SummaryView';
 import { CalculatorState, CalculationResults } from './types';
-import { GoogleGenAI } from "@google/genai";
 
 // Refined SVG for BAI Logo based on "Jumping Figure" reference - kept for section use
 export const BAILogo = ({ className = "w-10 h-10" }) => (
@@ -19,10 +18,10 @@ export const BAILogo = ({ className = "w-10 h-10" }) => (
 );
 
 const App: React.FC = () => {
-  // Set "summary" as the default view as requested
+  // Set "summary" as the default view
   const [activeView, setActiveView] = useState<'detailed' | 'summary'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>("https://www.bancobai.ao/pt/cambios-e-valores");
   const [currentDate, setCurrentDate] = useState("");
   
   const [state, setState] = useState<CalculatorState>({
@@ -61,47 +60,11 @@ const App: React.FC = () => {
     setCurrentDate(formatted);
   }, []);
 
+  // AI API logic removed as per user request
   const refreshExchangeRate = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: "Qual é o valor atual da taxa de 'Venda' de USD (Dólar) para AOA (Kwanza) no site oficial do Banco BAI (https://www.bancobai.ao/pt/cambios-e-valores)? Extraia apenas o número. Exemplo: 974.00",
-        config: {
-          tools: [{ googleSearch: {} }],
-        },
-      });
-
-      const rawText = response.text || "";
-      const match = rawText.match(/(\d+[.,]\d+)/);
-      if (match) {
-        const rate = parseFloat(match[0].replace(',', '.'));
-        if (!isNaN(rate) && rate > 500) { // Safety check for plausible rate
-          setState(prev => ({ ...prev, exchangeRate: rate }));
-        }
-      }
-
-      // Extract source URL from grounding metadata
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (chunks && chunks.length > 0) {
-        const firstSource = chunks.find(c => c.web?.uri);
-        if (firstSource?.web?.uri) {
-          setSourceUrl(firstSource.web.uri);
-        }
-      } else {
-        setSourceUrl("https://www.bancobai.ao/pt/cambios-e-valores");
-      }
-    } catch (error) {
-      console.error("Failed to sync exchange rate:", error);
-    } finally {
-      setIsSyncing(false);
-    }
+    console.log("Sincronização automática desativada. Por favor, insira o câmbio manualmente.");
+    // No longer using Google GenAI
   }, []);
-
-  useEffect(() => {
-    refreshExchangeRate();
-  }, [refreshExchangeRate]);
 
   useEffect(() => {
     const baseKwanza = state.usdNeeded * state.exchangeRate;
@@ -182,16 +145,8 @@ const App: React.FC = () => {
 
             <div className="flex items-center flex-col items-end">
               <div className="flex items-center gap-2">
-                <i className={`fas fa-money-bill-transfer text-green-400 text-lg ${isSyncing ? 'animate-spin' : ''}`}></i>
+                <i className={`fas fa-money-bill-transfer text-green-400 text-lg`}></i>
                 <span className="font-bold text-white">{state.exchangeRate.toFixed(2)} Kz/USD</span>
-                <button 
-                  onClick={refreshExchangeRate}
-                  disabled={isSyncing}
-                  className="p-1 hover:bg-white/10 rounded text-slate-400 transition-colors"
-                  title="Sincronizar Câmbio BAI"
-                >
-                  <i className="fas fa-sync-alt text-xs"></i>
-                </button>
               </div>
               {sourceUrl && (
                 <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[9px] text-blue-400 hover:text-blue-300 flex items-center gap-1 uppercase font-bold tracking-tighter mt-1">
@@ -211,8 +166,8 @@ const App: React.FC = () => {
                 state={state} 
                 results={results} 
                 onUpdate={handleStateChange} 
-                isSyncing={isSyncing}
-                onRefresh={refreshExchangeRate}
+                isSyncing={false}
+                onRefresh={() => {}}
                 sourceUrl={sourceUrl}
               />
             </div>
@@ -229,8 +184,8 @@ const App: React.FC = () => {
             state={state} 
             results={results} 
             onUpdate={handleStateChange} 
-            isSyncing={isSyncing}
-            onRefresh={refreshExchangeRate}
+            isSyncing={false}
+            onRefresh={() => {}}
             sourceUrl={sourceUrl}
           />
         )}

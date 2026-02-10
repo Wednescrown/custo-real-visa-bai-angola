@@ -1,7 +1,5 @@
 {
   "name": "Custo Real VISA BAI",
   "description": "A professional tool for calculating importation costs from USD to Kwanza, including bank fees, taxes, shipping, and customs.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "requestFramePermissions": []
 }
