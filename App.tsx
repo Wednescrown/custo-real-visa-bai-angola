@@ -4,7 +4,7 @@ import { Calculator } from './components/Calculator';
 import { AnalysisPanel } from './components/AnalysisPanel';
 import { SummaryView } from './components/SummaryView';
 import { CalculatorState, CalculationResults } from './types';
-import { GoogleGenAI } from "@google/genai";
+import { Login } from './components/Login';
 
 // Refined SVG for BAI Logo based on "Jumping Figure" reference - kept for section use
 export const BAILogo = ({ className = "w-10 h-10" }) => (
@@ -19,10 +19,15 @@ export const BAILogo = ({ className = "w-10 h-10" }) => (
 );
 
 const App: React.FC = () => {
-  // Set "summary" as the default view as requested
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('is_auth_wc') === 'true';
+  });
+
+  // Set "summary" as the default view (Publicly accessible)
   const [activeView, setActiveView] = useState<'detailed' | 'summary'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>("https://www.bancobai.ao/pt/cambios-e-valores");
   const [currentDate, setCurrentDate] = useState("");
   
   const [state, setState] = useState<CalculatorState>({
@@ -61,48 +66,6 @@ const App: React.FC = () => {
     setCurrentDate(formatted);
   }, []);
 
-  const refreshExchangeRate = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: "Qual é o valor atual da taxa de 'Venda' de USD (Dólar) para AOA (Kwanza) no site oficial do Banco BAI (https://www.bancobai.ao/pt/cambios-e-valores)? Extraia apenas o número. Exemplo: 974.00",
-        config: {
-          tools: [{ googleSearch: {} }],
-        },
-      });
-
-      const rawText = response.text || "";
-      const match = rawText.match(/(\d+[.,]\d+)/);
-      if (match) {
-        const rate = parseFloat(match[0].replace(',', '.'));
-        if (!isNaN(rate) && rate > 500) { // Safety check for plausible rate
-          setState(prev => ({ ...prev, exchangeRate: rate }));
-        }
-      }
-
-      // Extract source URL from grounding metadata
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (chunks && chunks.length > 0) {
-        const firstSource = chunks.find(c => c.web?.uri);
-        if (firstSource?.web?.uri) {
-          setSourceUrl(firstSource.web.uri);
-        }
-      } else {
-        setSourceUrl("https://www.bancobai.ao/pt/cambios-e-valores");
-      }
-    } catch (error) {
-      console.error("Failed to sync exchange rate:", error);
-    } finally {
-      setIsSyncing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshExchangeRate();
-  }, [refreshExchangeRate]);
-
   useEffect(() => {
     const baseKwanza = state.usdNeeded * state.exchangeRate;
     const purchaseFee = baseKwanza * (state.purchaseFeePct / 100);
@@ -138,8 +101,13 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, ...updates }));
   };
 
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    sessionStorage.setItem('is_auth_wc', 'true');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#2e1534] via-[#1a1b3a] to-[#0f172a] text-slate-100 font-sans pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-[#2e1534] via-[#1a1b3a] to-[#0f172a] text-slate-100 font-sans pb-20 animate-in fade-in duration-700">
       <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-8 py-4 sticky top-0 z-50 shadow-2xl">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -182,16 +150,8 @@ const App: React.FC = () => {
 
             <div className="flex items-center flex-col items-end">
               <div className="flex items-center gap-2">
-                <i className={`fas fa-money-bill-transfer text-green-400 text-lg ${isSyncing ? 'animate-spin' : ''}`}></i>
+                <i className={`fas fa-money-bill-transfer text-green-400 text-lg`}></i>
                 <span className="font-bold text-white">{state.exchangeRate.toFixed(2)} Kz/USD</span>
-                <button 
-                  onClick={refreshExchangeRate}
-                  disabled={isSyncing}
-                  className="p-1 hover:bg-white/10 rounded text-slate-400 transition-colors"
-                  title="Sincronizar Câmbio BAI"
-                >
-                  <i className="fas fa-sync-alt text-xs"></i>
-                </button>
               </div>
               {sourceUrl && (
                 <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[9px] text-blue-400 hover:text-blue-300 flex items-center gap-1 uppercase font-bold tracking-tighter mt-1">
@@ -203,34 +163,40 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto w-full p-6 md:p-10">
+      <main className="max-w-[1400px] mx-auto w-full p-6 md:p-10 min-h-[60vh]">
         {activeView === 'detailed' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div className="lg:col-span-8 space-y-8">
-              <Calculator 
-                state={state} 
-                results={results} 
-                onUpdate={handleStateChange} 
-                isSyncing={isSyncing}
-                onRefresh={refreshExchangeRate}
-                sourceUrl={sourceUrl}
-              />
+          !isAuthenticated ? (
+            <div className="flex justify-center items-center py-12">
+              <Login onLogin={handleLoginSuccess} embedded={true} />
             </div>
-            <div className="lg:col-span-4">
-              <div className="mb-6 bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex items-center gap-3">
-                <i className="fas fa-shield-halved text-blue-400"></i>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Certificado WEDNESCROWN SALES</span>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in fade-in duration-500">
+              <div className="lg:col-span-8 space-y-8">
+                <Calculator 
+                  state={state} 
+                  results={results} 
+                  onUpdate={handleStateChange} 
+                  isSyncing={false}
+                  onRefresh={() => {}}
+                  sourceUrl={sourceUrl}
+                />
               </div>
-              <AnalysisPanel state={state} results={results} />
+              <div className="lg:col-span-4">
+                <div className="mb-6 bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex items-center gap-3">
+                  <i className="fas fa-shield-halved text-blue-400"></i>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Certificado WEDNESCROWN SALES</span>
+                </div>
+                <AnalysisPanel state={state} results={results} />
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <SummaryView 
             state={state} 
             results={results} 
             onUpdate={handleStateChange} 
-            isSyncing={isSyncing}
-            onRefresh={refreshExchangeRate}
+            isSyncing={false}
+            onRefresh={() => {}}
             sourceUrl={sourceUrl}
           />
         )}
